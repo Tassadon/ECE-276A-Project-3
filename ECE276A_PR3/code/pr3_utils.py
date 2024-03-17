@@ -70,11 +70,8 @@ def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
     ax.grid(False)
     ax.legend()
     plt.show(block=True)
-
+    
     return fig, ax
-
-
-
 
 def projection(ph):
   '''
