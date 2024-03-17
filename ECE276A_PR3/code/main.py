@@ -45,7 +45,8 @@ if __name__ == '__main__':
 	print("linear_velocity:",linear_velocity.shape)
 	print("angular velocity:", angular_velocity.shape)
 	print("time:",t.shape)
-
+	feats = features[:,::10,:]
+	print("feats:", feats.shape)
 
 	# (a) IMU Localization via EKF Prediction: no update
 	T_0 = np.array([
@@ -57,33 +58,32 @@ if __name__ == '__main__':
 	poses = [T_0]
 	for i,tau_i in enumerate(tqdm.tqdm(np.squeeze(tau))):
 		poses.append( poses[-1] @ expm(tau_i * zeta_hat[i]) )
+		#The covariance doesnt affect mean here
 
 	poses = np.array(poses)
-	#visualize_trajectory_2d(np.transpose(poses,axes=(1,2,0)),path_name=f"IMU localization only for dataset {dataset}",show_ori=True)
-
-
-
-
-
+	#visualize_trajectory_2d(np.transpose(poses,axes=(1,2,0)),path_name=f"IMU prediction only for dataset {dataset}",show_ori=True)
 
 	# (b) Landmark Mapping via EKF Update: no prediction
+
+
+
+	
+
 	mew_odometry = [T_0]
 	W = np.diag([.01,.01,.01,.005,.005,.005])
-	
 	cov_odometry = [W]
-
-	print(features[:,:,0].shape)
-	c = np.apply_along_axis(lambda x: np.all(x != np.array([-1,-1,-1,-1])),0,features[:,:,0])
-
-	print(features[:,c,0].shape)
 	null_condition = np.array([-1,-1,-1,-1])
-	landmark_means = {}
-	landmark_cov = {}
+
 	P = np.array([[1,0,0],
 			   	  [0,1,0],
 				  [0,0,1],
 				  [0,0,0]])
-	landmark_cov_init = 10^-3 * np.eye(4)
+	landmark_noise = 10e-3 * np.eye(3*feats.shape[1])
+	landmark_cov = 10e-3 * np.eye(3*feats.shape[1])
+	landmark_mean = np.zeros((3*feats.shape[1],1))
+	landmark_seen = np.zeros((feats.shape[1],1))
+	landmark_eye = np.zeros(3*feats.shape[1])
+	count = 0
 
 	for i,tau_i in enumerate(tqdm.tqdm(np.squeeze(tau))):
 		mew_odometry.append( mew_odometry[-1] @ expm(tau_i * zeta_hat[i]) )
@@ -91,46 +91,50 @@ if __name__ == '__main__':
 					  + cov_odometry[0])
 		
 		available_feats_indices = np.nonzero(
-			np.apply_along_axis(lambda x: np.all(x != null_condition),0,features[:,:,i])
+			np.apply_along_axis(lambda x: np.all(x != null_condition),0,feats[:,:,i])
 			)[0]
-
+		
 		cam_T_world = cam_T_imu @ mew_odometry[-1] #mew_odometry[-1] is imu_T_world
-		world_T_cam = np.linalg.inv(cam_T_world)
-
+		world_T_cam = mew_odometry[-1] @ imu_T_cam
+		
 		for j in available_feats_indices:
-			
-			if j not in landmark_means.keys():
-				d = features[0,j,i] - features[2,j,i]
-				Z_0 = (K[0,0]*b)/d
+			count += 1
+			if landmark_seen[j] == 0:
 
-				camera_coords = np.hstack((Z_0 * inv_K @ np.hstack( (  features[:2,j,i] , 1)) , 1) ) 
+				landmark_seen[j] = 1
+				d = feats[0,j,i] - feats[2,j,i]
 
-				landmark_means[j] = world_T_cam @ camera_coords
+				Z_0 = (K[0,0] * b) / d
+
+				camera_coords = np.hstack((Z_0 * np.linalg.inv(K) @ np.hstack((feats[:2,j,i], 1)), 1))
+				
+				landmark_local = world_T_cam @ np.array([camera_coords]).T
+
+				landmark_mean[(3*j):(3*j+3)] = landmark_local[:3]
 				
 			else:
-				print("ZA MEAN",landmark_means[j].shape)
-				curr_landmark =  cam_T_world @ landmark_means[j]
-				z_tilda = K_s @ projection(curr_landmark)
-
-				print((mew_odometry[-1] @ landmark_means[j]).shape)
-
-				H = -K_s @ projectionJacobian(curr_landmark) @ cam_T_imu @ P
-
-				print(H.shape)
+				#print(np.vstack([landmark_mean[(3*j):(3*j+3)],1]).shape)
+				#print((cam_T_world @ np.vstack([landmark_mean[(3*j):(3*j+3)],1])).shape)
+				#print(projection( (cam_T_world @ np.vstack([landmark_mean[(3*j):(3*j+3)],1])).T ).shape)
+				continue
+				z_tilda = K_s @ projection( (cam_T_world @ np.vstack([landmark_mean[(3*j):(3*j+3)],1])).T ).T
 				
-				#K_t = cov_odometry[-1] @ H.T @ np.linalg.inv(H@cov_odometry[-1]@H.T  + V)
-				break
-				#landmark_means[j] = mew_odometry @ expm(K_t( - z_tilda))
-		
-		
+				H = 1
 
-	#plt.scatter(x,y)
-	#visualize_trajectory_2d(np.transpose(mew_odometry,axes=(1,2,0)),path_name=f"IMU localization only for dataset {dataset}",show_ori=True)
+				K_t = landmark_cov @ H.T @ np.linalg.inv(H@landmark_cov@H.T + landmark_noise)
+				landmark_mean = landmark_mean + K_t@(features[:,:,i] - z_tilda)
+				landmark_cov = (landmark_eye - K_t@H)@landmark_cov
+				
 
-
+	
+	visualize_trajectory_2d_scatter(np.transpose(mew_odometry,axes=(1,2,0)),
+						 landmark_mean[0::3],landmark_mean[1::3],
+						 path_name=f"Visual Mapping only for dataset {dataset}",show_ori=True)
 
 
 	# (c) Visual-Inertial SLAM
+	
+	
 
 	# You may use the function below to visualize the robot pose over time
 	# visualize_trajectory_2d(world_T_imu, show_ori = True)
