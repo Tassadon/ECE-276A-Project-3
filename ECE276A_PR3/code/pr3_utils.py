@@ -73,7 +73,7 @@ def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
     
     return fig, ax
 
-def visualize_trajectory_2d_scatter(pose,x,y,path_name="Unknown",show_ori=False):
+def visualize_trajectory_2d_scatter(pose,x,y,path_name="Unknown",show_ori=False,dataset="03",fname="none"):
     '''
     function to visualize the trajectory in 2D
     Input:
@@ -106,8 +106,8 @@ def visualize_trajectory_2d_scatter(pose,x,y,path_name="Unknown",show_ori=False)
     ax.axis('equal')
     ax.grid(False)
     ax.legend()
+    plt.savefig(f"../graphs/{fname}_{dataset}")
     plt.show(block=True)
-    
     return fig, ax
 
 def projection(ph):
