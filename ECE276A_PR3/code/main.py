@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
 	# Load the measurements
-	dataset = "10"
+	dataset = "03"
 	filename = f"../data/{dataset}.npz"
 	t,features,linear_velocity,angular_velocity,K,b,imu_T_cam = load_data(filename)
 
@@ -28,7 +28,6 @@ if __name__ == '__main__':
 					[0, fsv, cv, 0]])
 	inv_K = np.linalg.inv(K)
 
-
 	print("pointy_hat_shape", zeta_pointy_hat[0].shape)
 	print("features:", features.shape)
 	print("K:", K.shape)
@@ -37,7 +36,7 @@ if __name__ == '__main__':
 	print("linear_velocity:",linear_velocity.shape)
 	print("angular velocity:", angular_velocity.shape)
 	print("time:",t.shape)
-	feats = features[:,::50,:] #50 for dataset 10 and 20 for dataset 03
+	feats = features[:,::100,:] #100 for dataset 03 and 200 for dataset 10
 	print("feats:", feats.shape)
 	
 	# (a) IMU Localization via EKF Prediction: no update
@@ -46,8 +45,9 @@ if __name__ == '__main__':
 					[0,-1,0,0],
 					[0,0,-1,0],
 					[0,0,0,1]])
-	
+
 	#T_0 = np.eye(4)
+	
 	poses = [T_0]
 	for i,tau_i in enumerate(tqdm.tqdm(np.squeeze(tau))):
 		poses.append( poses[-1] @ expm(tau_i * zeta_hat[i]) )
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 	# (c) Visual-Inertial SLAM
 	mew_odometry = [T_0]
 	mew_t_1_t = [T_0]
-	W = np.diag([.01,.01,.01,.005,.005,.005])
+	W = np.diag([.1,.1,.1,.05,.05,.05])
 	cov_odometry = [W]
 	cov_t_1_t_odometry = [W]
 	null_condition = np.array([-1,-1,-1,-1])
