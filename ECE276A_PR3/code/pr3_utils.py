@@ -36,7 +36,7 @@ def load_data(file_name):
     return t,features,linear_velocity,angular_velocity,K,b,imu_T_cam
 
 
-def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
+def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False, dataset="03",fname="none"):
     '''
     function to visualize the trajectory in 2D
     Input:
@@ -69,6 +69,7 @@ def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
     ax.axis('equal')
     ax.grid(False)
     ax.legend()
+    plt.savefig(f"../graphs/{fname}_{dataset}")
     plt.show(block=True)
     
     return fig, ax
@@ -252,9 +253,27 @@ def pose2adpose(T):
   calT[...,3:,:3] = np.zeros(T.shape[:-2]+(3,3))
   calT[...,3:,3:] = T[...,:3,:3]
   return calT
+def hatmap(x):
+   '''
+   creates hatmap from 3d vector
+   '''
 
-
-
+   myhat = np.array([
+      [0, -x[2], x[1]],
+      [x[2], 0, -x[0]],
+      [-x[1], x[0], 0]
+   ])
+   return myhat
+def dot_hat(x):
+   '''
+   creates dothat from homogoneous coodinates
+   '''
+   x = np.squeeze(x)
+   funky = np.zeros((4,6))
+   funky[:3,:3] = np.eye(3)
+   funky[:3, 3:]= -hatmap(x)
+   
+   return funky
 
 
 
