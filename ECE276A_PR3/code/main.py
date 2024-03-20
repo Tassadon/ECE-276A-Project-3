@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
 	# Load the measurements
-	dataset = "10"
+	dataset = "03"
 	filename = f"../data/{dataset}.npz"
 	t,features,linear_velocity,angular_velocity,K,b,imu_T_cam = load_data(filename)
-	feats = features[:,::50,:] #15 for dataset 03 and 50 for dataset 10
+	feats = features[:,::15,:] #15 for dataset 03 and 50 for dataset 10
 	zeta = np.concatenate([linear_velocity, angular_velocity])
 	zeta_hat = axangle2twist(zeta.T)
 	zeta_pointy_hat = axangle2adtwist(zeta.T)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 					[0,0,-1,0],
 					[0,0,0,1]])
 	#T_0 = np.eye(4)
-	'''
+	
 	poses = [T_0]
 	for i,tau_i in enumerate(tqdm.tqdm(np.squeeze(tau))):
 		poses.append( poses[-1] @ expm(tau_i * zeta_hat[i]) )
@@ -131,7 +131,7 @@ if __name__ == '__main__':
 						 landmark_mean[0::3],landmark_mean[1::3],
 						 path_name=f"Visual Update for dataset {dataset}",show_ori=True,
 						 dataset=dataset,fname="visual_update_only")
-	'''
+	
 	# (c) Visual-Inertial SLAM
 
 	mew_odometry = [T_0]
@@ -145,7 +145,7 @@ if __name__ == '__main__':
 	
 	W = np.diag([1,1,1,.5,.5,.5])
 	count = 0
-	IxV_L = 1 * np.eye(4*feats.shape[1])
+	IxV_L = 3 * np.eye(4*feats.shape[1])
 	IxV_M = 5 * np.eye(4*feats.shape[1])
 	landmark_noise = 3 * np.eye(3)
 	
